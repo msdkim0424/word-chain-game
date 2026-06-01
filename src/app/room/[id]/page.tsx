@@ -1,18 +1,21 @@
 'use client';
 
 import { useEffect, useState, useRef, use } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import styles from './room.module.css';
-import { Send, Clock, Play, Copy, Users } from 'lucide-react';
+import { Send, Clock, Play, Copy, Users, ArrowLeft } from 'lucide-react';
 
 const STARTING_WORDS = ['사과', '학교', '컴퓨터', '바나나', '기차', '우주', '자전거', '피아노', '호랑이', '고양이', '대한민국', '소방관', '경찰관', '우주선'];
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
   const resolvedParams = use(params);
   const roomId = resolvedParams.id;
   
-  const [player, setPlayer] = useState<{ id: string, nickname: string } | null>(null);
-  const [nicknameInput, setNicknameInput] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [player, setPlayer] = useState<any | null>(null);
   
   const [room, setRoom] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
@@ -23,9 +26,22 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const [chatInput, setChatInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wordsEndRef = useRef<HTMLDivElement>(null);
+
+  // Check login
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('wollu_user_id');
+    const storedUsername = localStorage.getItem('wollu_username');
+    if (!storedUserId) {
+      router.push('/login');
+    } else {
+      setUserId(storedUserId);
+      setUsername(storedUsername);
+    }
+  }, [router]);
 
   // Auto-scroll logic
   useEffect(() => {
@@ -37,14 +53,21 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   }, [words]);
 
   useEffect(() => {
+    if (!userId) return;
+
     const fetchInitialData = async () => {
       // Room
-      const { data: roomData } = await supabase.from('rooms').select('*').eq('id', roomId).single();
+      const { data: roomData } = await supabase.from('rooms').select('*, users(username)').eq('id', roomId).single();
       if (roomData) setRoom(roomData);
       
       // Players
       const { data: playersData } = await supabase.from('players').select('*').eq('room_id', roomId).order('joined_at', { ascending: true });
-      if (playersData) setPlayers(playersData);
+      if (playersData) {
+        setPlayers(playersData);
+        // Check if current user is already a player
+        const existingPlayer = playersData.find((p: any) => p.user_id === userId);
+        if (existingPlayer) setPlayer(existingPlayer);
+      }
       
       // Words
       const { data: wordsData } = await supabase.from('words').select('*').eq('room_id', roomId).order('created_at', { ascending: true });
@@ -60,7 +83,10 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     // Set up Realtime subscriptions
     const channel = supabase.channel(`room:${roomId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, payload => {
-        setRoom(payload.new);
+        // Fetch full room to get users(username) relation easily, or just update status
+        supabase.from('rooms').select('*, users(username)').eq('id', roomId).single().then(({data}) => {
+          if (data) setRoom(data);
+        });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_id=eq.${roomId}` }, async () => {
         const { data } = await supabase.from('players').select('*').eq('room_id', roomId).order('joined_at', { ascending: true });
@@ -79,22 +105,26 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [roomId]);
+  }, [roomId, userId]);
 
-  const joinRoom = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nicknameInput.trim()) return;
+  const autoJoinRoom = async () => {
+    if (!userId || !username || player || isJoining) return;
+    setIsJoining(true);
     
-    const { data, error: err } = await supabase.from('players').insert([{
-      room_id: roomId,
-      nickname: nicknameInput.trim()
-    }]).select().single();
-    
-    if (err) {
-      console.error(err);
-      return;
+    try {
+      const { data, error: err } = await supabase.from('players').insert([{
+        room_id: roomId,
+        user_id: userId,
+        nickname: username
+      }]).select().single();
+      
+      if (err) throw err;
+      setPlayer(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsJoining(false);
     }
-    setPlayer(data);
   };
 
   const copyInviteLink = () => {
@@ -104,15 +134,15 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   };
 
   const startGame = async () => {
-    if (players.length < 2) return;
+    if (players.length < 2 || !player) return;
     const firstPlayerId = players[0].id;
     const randomStartingWord = STARTING_WORDS[Math.floor(Math.random() * STARTING_WORDS.length)];
 
-    // Insert the starting word with null player_id (system word)
+    // Insert the starting word with the host's player_id but formatted special
     await supabase.from('words').insert([{
       room_id: roomId,
-      player_id: null,
-      word: randomStartingWord
+      player_id: player.id,
+      word: `[System] ${randomStartingWord}`
     }]);
 
     await supabase.from('rooms').update({ 
@@ -150,8 +180,13 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
     // Basic Korean Word Chain Validation
     if (words.length > 0) {
-      const lastWord = words[words.length - 1].word;
-      const lastChar = lastWord.charAt(lastWord.length - 1);
+      // Extract the actual last word if it was a system word (e.g. "[System] 사과" -> "사과")
+      let lastWordStr = words[words.length - 1].word;
+      if (lastWordStr.startsWith('[System] ')) {
+        lastWordStr = lastWordStr.replace('[System] ', '');
+      }
+
+      const lastChar = lastWordStr.charAt(lastWordStr.length - 1);
       const firstChar = word.charAt(0);
       
       if (firstChar !== lastChar) {
@@ -201,38 +236,41 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     }
   };
 
-  if (!room) {
-    return <div className={styles.container}><div style={{margin: 'auto'}}>Loading...</div></div>;
-  }
+  if (!userId) return null; // Wait for redirect
+  if (!room) return <div className={styles.container}><div style={{margin: 'auto'}}>Loading...</div></div>;
 
   const isMyTurn = room.current_turn_player_id === player?.id;
   const currentTurnPlayer = players.find(p => p.id === room.current_turn_player_id);
+  const isHost = room.host_id === userId;
 
   return (
     <div className={styles.container}>
-      {/* Join Overlay / Profile Creator */}
+      {/* Join Overlay (Simplified now that we have global users) */}
       {!player && (
         <div className={styles.joinOverlay}>
           <div className={`glass-panel ${styles.joinModal}`}>
-            <h2 className={styles.joinModalTitle}>Create Session Profile</h2>
-            <p className={styles.joinModalSubtitle}>Set up your avatar and nickname to join the game.</p>
+            <h2 className={styles.joinModalTitle}>Join {room.name || 'Game'}</h2>
+            <p className={styles.joinModalSubtitle}>You will join as <strong>{username}</strong>.</p>
             
             <div className={styles.avatarPreview}>
-              {nicknameInput ? nicknameInput.charAt(0).toUpperCase() : '?'}
+              {username?.charAt(0).toUpperCase()}
             </div>
 
-            <form onSubmit={joinRoom} style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
-              <input 
-                type="text" 
-                className="input-base" 
-                placeholder="Enter your nickname..."
-                value={nicknameInput}
-                onChange={e => setNicknameInput(e.target.value)}
-                autoFocus
-                maxLength={12}
-              />
-              <button type="submit" className="btn-primary" style={{marginTop: '1rem'}}>Join Room</button>
-            </form>
+            <button 
+              className="btn-primary" 
+              onClick={autoJoinRoom} 
+              disabled={isJoining}
+              style={{marginTop: '1rem'}}
+            >
+              {isJoining ? 'Joining...' : 'Click to Join Room'}
+            </button>
+            <button 
+              className="btn-primary" 
+              onClick={() => router.push('/')} 
+              style={{marginTop: '0.5rem', background: 'transparent', border: '1px solid var(--border)'}}
+            >
+              Back to Lobby
+            </button>
           </div>
         </div>
       )}
@@ -242,9 +280,20 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         {/* Top Header */}
         <div className={styles.topHeader}>
           <div className={styles.gameInfo}>
-            <h2 className={styles.headerTitle}>WolLu Game</h2>
+            <button 
+              onClick={() => router.push('/')} 
+              style={{background: 'rgba(255,255,255,0.1)', padding: '0.5rem', borderRadius: '50%', color: 'white', display: 'flex'}}
+              title="Back to Lobby"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h2 className={styles.headerTitle} style={{fontSize: '1.25rem'}}>{room.name || 'WolLu Game'}</h2>
+              <div style={{fontSize: '0.75rem', color: '#94a3b8'}}>Host: {room.users?.username || 'Unknown'}</div>
+            </div>
+
             {room.status === 'playing' && (
-              <button onClick={checkTimeout} style={{color: 'var(--accent)', textDecoration: 'underline', fontSize: '0.875rem', background: 'none', border: 'none', cursor: 'pointer'}}>
+              <button onClick={checkTimeout} style={{marginLeft: '1rem', color: 'var(--accent)', textDecoration: 'underline', fontSize: '0.875rem', background: 'none', border: 'none', cursor: 'pointer'}}>
                 Check Timeout
               </button>
             )}
@@ -267,7 +316,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
           <div className={styles.lobbyContainer}>
             <div className={styles.lobbyBox}>
               <div>
-                <h2 className={styles.lobbyTitle}>Game Lobby</h2>
+                <h2 className={styles.lobbyTitle}>{room.name || 'Game Lobby'}</h2>
                 <p className={styles.lobbySubtitle}>
                   {players.length < 2 
                     ? "Waiting for more players to join..." 
@@ -282,17 +331,23 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
                 </button>
               </div>
 
-              <div style={{display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem'}}>
-                <button 
-                  className="btn-primary" 
-                  onClick={startGame} 
-                  disabled={players.length < 2}
-                  style={{fontSize: '1.25rem', padding: '1rem 3rem'}}
-                >
-                  <Play size={20} style={{marginRight: '0.5rem', display: 'inline-block', verticalAlign: 'middle'}}/> 
-                  Start Game
-                </button>
-              </div>
+              {isHost ? (
+                <div style={{display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem'}}>
+                  <button 
+                    className="btn-primary" 
+                    onClick={startGame} 
+                    disabled={players.length < 2}
+                    style={{fontSize: '1.25rem', padding: '1rem 3rem'}}
+                  >
+                    <Play size={20} style={{marginRight: '0.5rem', display: 'inline-block', verticalAlign: 'middle'}}/> 
+                    Start Game
+                  </button>
+                </div>
+              ) : (
+                <div style={{marginTop: '1rem', color: 'var(--primary)', fontWeight: 'bold'}}>
+                  Waiting for host ({room.users?.username}) to start the game...
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -310,14 +365,19 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
             <div className={styles.gameBoard}>
               <div className={styles.wordList}>
-                {words.map((w, i) => (
-                  <div key={w.id} className={styles.wordItem}>
-                    {w.word}
-                    <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', fontWeight: 'normal'}}>
-                      {w.player_id === null ? '🤖 System' : players.find(p => p.id === w.player_id)?.nickname}
+                {words.map((w, i) => {
+                  const isSystem = w.word.startsWith('[System]');
+                  const displayWord = isSystem ? w.word.replace('[System] ', '') : w.word;
+                  
+                  return (
+                    <div key={w.id} className={styles.wordItem} style={isSystem ? { borderColor: 'var(--accent)', background: 'rgba(236, 72, 153, 0.1)' } : {}}>
+                      {displayWord}
+                      <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', fontWeight: 'normal'}}>
+                        {isSystem ? '🤖 System' : players.find(p => p.id === w.player_id)?.nickname}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <div ref={wordsEndRef} />
               </div>
             </div>
