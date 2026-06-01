@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
-import { Play, Users, LogOut, Plus } from 'lucide-react';
+import { Play, Users, LogOut, Plus, Trash2 } from 'lucide-react';
 import styles from './page.module.css';
 
 export default function Home() {
@@ -86,6 +86,20 @@ export default function Home() {
     }
   };
 
+  const deleteRoom = async (e: React.MouseEvent, roomId: string) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this game?")) return;
+    
+    try {
+      const { error: err } = await supabase.from('rooms').delete().eq('id', roomId);
+      if (err) throw err;
+      // Realtime listener will automatically remove it from the UI!
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete the game.");
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('wollu_user_id');
     localStorage.removeItem('wollu_username');
@@ -148,9 +162,22 @@ export default function Home() {
             <div className={styles.roomGrid}>
               {activeRooms.map(room => (
                 <div key={room.id} className={styles.roomCard} onClick={() => router.push(`/room/${room.id}`)}>
-                  <div>
-                    <div className={styles.roomName}>{room.name || 'Unnamed Game'}</div>
-                    <div className={styles.roomHost}>Host: {room.users?.username || 'Unknown'}</div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                    <div>
+                      <div className={styles.roomName}>{room.name || 'Unnamed Game'}</div>
+                      <div className={styles.roomHost}>Host: {room.users?.username || 'Unknown'}</div>
+                    </div>
+                    {room.host_id === userId && (
+                      <button 
+                        onClick={(e) => deleteRoom(e, room.id)}
+                        style={{background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: '0.25rem', borderRadius: '4px'}}
+                        title="Delete Game"
+                        onMouseOver={e => e.currentTarget.style.background = 'rgba(236, 72, 153, 0.1)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'none'}
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
                   </div>
                   <div style={{color: 'var(--primary)', fontWeight: 'bold', fontSize: '0.875rem', marginTop: 'auto'}}>
                     Click to join →
