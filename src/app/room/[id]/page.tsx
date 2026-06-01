@@ -256,6 +256,9 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         status: 'finished'
       }).eq('id', roomId);
       alert("Game over! Someone timed out.");
+    } else {
+      const minutesLeft = Math.ceil((1 - diffHours) * 60);
+      alert(`No one has timed out yet! The current player still has ${minutesLeft} minutes remaining to take their turn.`);
     }
   };
 
