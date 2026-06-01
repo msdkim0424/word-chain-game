@@ -138,3 +138,17 @@
 .logoutBtn:hover {
   background: rgba(255,255,255,0.1);
 }
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 1.5rem;
+  }
+  .createRoomArea {
+    flex-direction: column;
+  }
+  .headerRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+}
