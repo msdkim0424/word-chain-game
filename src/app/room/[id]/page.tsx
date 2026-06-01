@@ -134,8 +134,8 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   };
 
   const startGame = async () => {
-    if (players.length < 2 || !player) return;
-    const firstPlayerId = players[0].id;
+    if (!player) return;
+    const firstPlayerId = players[0]?.id || player.id;
     const randomStartingWord = STARTING_WORDS[Math.floor(Math.random() * STARTING_WORDS.length)];
 
     // Insert the starting word with the host's player_id but formatted special
@@ -318,9 +318,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
               <div>
                 <h2 className={styles.lobbyTitle}>{room.name || 'Game Lobby'}</h2>
                 <p className={styles.lobbySubtitle}>
-                  {players.length < 2 
-                    ? "Waiting for more players to join..." 
-                    : "Ready to start! Waiting for host to begin."}
+                  Waiting for host to begin. Anyone can join at any time!
                 </p>
               </div>
 
@@ -336,7 +334,6 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
                   <button 
                     className="btn-primary" 
                     onClick={startGame} 
-                    disabled={players.length < 2}
                     style={{fontSize: '1.25rem', padding: '1rem 3rem'}}
                   >
                     <Play size={20} style={{marginRight: '0.5rem', display: 'inline-block', verticalAlign: 'middle'}}/> 
