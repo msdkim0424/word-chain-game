@@ -33,7 +33,7 @@ export default function Home() {
       const { data } = await supabase
         .from('rooms')
         .select('*, users(username)')
-        .eq('status', 'waiting')
+        .in('status', ['waiting', 'playing'])
         .order('created_at', { ascending: false });
       
       if (data) setActiveRooms(data);
@@ -42,8 +42,7 @@ export default function Home() {
     fetchRooms();
 
     const channel = supabase.channel('public:rooms')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: "status=eq.waiting" }, fetchRooms)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms' }, fetchRooms) // to remove started rooms
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, fetchRooms)
       .subscribe();
 
     // Re-fetch on window focus and pageshow (handles browser Back button cache issues)
