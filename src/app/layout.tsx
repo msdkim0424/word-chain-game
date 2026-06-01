@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "끝말잇기 - Multiplayer Word Chain",
-  description: "Play the classic Korean word chain game with your friends online.",
+  title: "WolLu Game - 월급루팡게임",
+  description: "Play the ultimate Word Chain game with your friends online.",
 };
 
 export default function RootLayout({

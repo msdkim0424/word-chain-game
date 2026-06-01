@@ -38,9 +38,9 @@ export default function Home() {
     <main className={styles.container}>
       <div className={`glass-panel animate-fade-in ${styles.hero}`}>
         <div>
-          <h1 className={styles.title}>끝말잇기</h1>
+          <h1 className={styles.title}>WolLu Game</h1>
           <p className={styles.subtitle}>
-            Challenge your friends in the ultimate real-time word chain game.
+            (월급루팡게임) Challenge your friends in the ultimate real-time word chain game.
             Create a room, share the link, and let the battle begin!
           </p>
         </div>
