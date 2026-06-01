@@ -44,6 +44,16 @@
   gap: 1rem;
   align-items: center;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.5rem; /* Prevent clipping */
+  
+  /* Hide scrollbar for a cleaner look */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.playerProfiles::-webkit-scrollbar {
+  display: none;
 }
 
 .profileItem {
