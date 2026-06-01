@@ -3,7 +3,9 @@
 import { useEffect, useState, useRef, use } from 'react';
 import { supabase } from '@/utils/supabase';
 import styles from './room.module.css';
-import { Send, Users, Clock, AlertCircle, Play } from 'lucide-react';
+import { Send, Clock, Play, Copy, Users } from 'lucide-react';
+
+const STARTING_WORDS = ['사과', '학교', '컴퓨터', '바나나', '기차', '우주', '자전거', '피아노', '호랑이', '고양이', '대한민국', '소방관', '경찰관', '우주선'];
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -20,6 +22,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const [wordInput, setWordInput] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wordsEndRef = useRef<HTMLDivElement>(null);
@@ -94,9 +97,24 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     setPlayer(data);
   };
 
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const startGame = async () => {
     if (players.length < 2) return;
     const firstPlayerId = players[0].id;
+    const randomStartingWord = STARTING_WORDS[Math.floor(Math.random() * STARTING_WORDS.length)];
+
+    // Insert the starting word with null player_id (system word)
+    await supabase.from('words').insert([{
+      room_id: roomId,
+      player_id: null,
+      word: randomStartingWord
+    }]);
+
     await supabase.from('rooms').update({ 
       status: 'playing', 
       current_turn_player_id: firstPlayerId,
@@ -225,11 +243,6 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         <div className={styles.topHeader}>
           <div className={styles.gameInfo}>
             <h2 className={styles.headerTitle}>WolLu Game</h2>
-            {room.status === 'waiting' && players.length >= 2 && (
-              <button className="btn-primary" onClick={startGame} style={{padding: '0.5rem 1rem', fontSize: '0.875rem'}}>
-                Start Game
-              </button>
-            )}
             {room.status === 'playing' && (
               <button onClick={checkTimeout} style={{color: 'var(--accent)', textDecoration: 'underline', fontSize: '0.875rem', background: 'none', border: 'none', cursor: 'pointer'}}>
                 Check Timeout
@@ -249,57 +262,91 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
           </div>
         </div>
 
-        {/* Turn Indicator Banner */}
-        {room.status === 'playing' && (
-          <div className={styles.turnBanner}>
-            <Clock size={20} />
-            <span>It is <strong>{currentTurnPlayer?.nickname}</strong>'s turn!</span>
+        {/* LOBBY VIEW */}
+        {room.status === 'waiting' && (
+          <div className={styles.lobbyContainer}>
+            <div className={styles.lobbyBox}>
+              <div>
+                <h2 className={styles.lobbyTitle}>Game Lobby</h2>
+                <p className={styles.lobbySubtitle}>
+                  {players.length < 2 
+                    ? "Waiting for more players to join..." 
+                    : "Ready to start! Waiting for host to begin."}
+                </p>
+              </div>
+
+              <div className={styles.linkBox}>
+                <div className={styles.linkText}>{typeof window !== 'undefined' ? window.location.href : ''}</div>
+                <button className="btn-primary" onClick={copyInviteLink} style={{padding: '0.5rem 1rem'}}>
+                  {copied ? 'Copied!' : <><Copy size={16} /> Copy Link</>}
+                </button>
+              </div>
+
+              <div style={{display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem'}}>
+                <button 
+                  className="btn-primary" 
+                  onClick={startGame} 
+                  disabled={players.length < 2}
+                  style={{fontSize: '1.25rem', padding: '1rem 3rem'}}
+                >
+                  <Play size={20} style={{marginRight: '0.5rem', display: 'inline-block', verticalAlign: 'middle'}}/> 
+                  Start Game
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className={styles.gameBoard}>
-          {words.length === 0 && room.status === 'playing' && (
-            <div style={{margin: 'auto', color: '#94a3b8', textAlign: 'center'}}>
-              <p>Game started!</p>
-              <p>{currentTurnPlayer?.nickname}, play the first word.</p>
-            </div>
-          )}
-          <div className={styles.wordList}>
-            {words.map((w, i) => (
-              <div key={w.id} className={styles.wordItem}>
-                {w.word}
-                <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', fontWeight: 'normal'}}>
-                  {players.find(p => p.id === w.player_id)?.nickname}
-                </div>
+        {/* ACTIVE GAME VIEW */}
+        {room.status !== 'waiting' && (
+          <>
+            {/* Turn Indicator Banner */}
+            {room.status === 'playing' && (
+              <div className={styles.turnBanner}>
+                <Clock size={20} />
+                <span>It is <strong>{currentTurnPlayer?.nickname}</strong>'s turn!</span>
               </div>
-            ))}
-            <div ref={wordsEndRef} />
-          </div>
-        </div>
+            )}
 
-        {/* Input Area */}
-        <div className={styles.inputArea}>
-          <form onSubmit={submitWord} style={{flex: 1, display: 'flex', flexDirection: 'column'}}>
-            <div style={{display: 'flex', gap: '1rem'}}>
-              <input 
-                type="text" 
-                className="input-base" 
-                placeholder={isMyTurn ? "Type your word..." : "Waiting for your turn..."}
-                value={wordInput}
-                onChange={e => setWordInput(e.target.value)}
-                disabled={!isMyTurn || room.status !== 'playing'}
-              />
-              <button 
-                type="submit" 
-                className="btn-primary" 
-                disabled={!isMyTurn || room.status !== 'playing'}
-              >
-                Submit
-              </button>
+            <div className={styles.gameBoard}>
+              <div className={styles.wordList}>
+                {words.map((w, i) => (
+                  <div key={w.id} className={styles.wordItem}>
+                    {w.word}
+                    <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', fontWeight: 'normal'}}>
+                      {w.player_id === null ? '🤖 System' : players.find(p => p.id === w.player_id)?.nickname}
+                    </div>
+                  </div>
+                ))}
+                <div ref={wordsEndRef} />
+              </div>
             </div>
-            {error && <div className={styles.errorText}>{error}</div>}
-          </form>
-        </div>
+
+            {/* Input Area */}
+            <div className={styles.inputArea}>
+              <form onSubmit={submitWord} style={{flex: 1, display: 'flex', flexDirection: 'column'}}>
+                <div style={{display: 'flex', gap: '1rem'}}>
+                  <input 
+                    type="text" 
+                    className="input-base" 
+                    placeholder={isMyTurn ? "Type your word..." : "Waiting for your turn..."}
+                    value={wordInput}
+                    onChange={e => setWordInput(e.target.value)}
+                    disabled={!isMyTurn || room.status !== 'playing'}
+                  />
+                  <button 
+                    type="submit" 
+                    className="btn-primary" 
+                    disabled={!isMyTurn || room.status !== 'playing'}
+                  >
+                    Submit
+                  </button>
+                </div>
+                {error && <div className={styles.errorText}>{error}</div>}
+              </form>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Chat Sidebar */}

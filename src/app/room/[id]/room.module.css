@@ -130,6 +130,60 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* LOBBY STYLES */
+.lobbyContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.lobbyBox {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 3rem;
+  max-width: 600px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.lobbyTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.lobbySubtitle {
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.linkBox {
+  display: flex;
+  align-items: center;
+  background: rgba(0,0,0,0.3);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  gap: 1rem;
+}
+
+.linkText {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
 .chatSidebar {
   width: 320px;
   border-left: 1px solid var(--border);
