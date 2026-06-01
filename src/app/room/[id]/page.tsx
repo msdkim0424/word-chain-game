@@ -335,17 +335,6 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
               </button>
             )}
           </div>
-
-          <div className={styles.playerProfiles}>
-            {players.map(p => (
-              <div key={p.id} className={`${styles.profileItem} ${room.current_turn_player_id === p.id ? styles.activeTurn : ''}`}>
-                <div className={styles.profileAvatar}>
-                  {p.nickname.charAt(0).toUpperCase()}
-                </div>
-                <span style={{fontWeight: 600, fontSize: '0.875rem'}}>{p.nickname} {p.id === player?.id && '(You)'}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* LOBBY VIEW */}
