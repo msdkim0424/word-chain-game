@@ -46,8 +46,14 @@ export default function Home() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms' }, fetchRooms) // to remove started rooms
       .subscribe();
 
+    // Re-fetch on window focus and pageshow (handles browser Back button cache issues)
+    window.addEventListener('focus', fetchRooms);
+    window.addEventListener('pageshow', fetchRooms);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('focus', fetchRooms);
+      window.removeEventListener('pageshow', fetchRooms);
     };
   }, []);
 

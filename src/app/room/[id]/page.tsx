@@ -195,6 +195,21 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       }
     }
 
+    // Dictionary Validation via Wiktionary API
+    try {
+      const res = await fetch(`https://ko.wiktionary.org/w/api.php?action=query&titles=${encodeURIComponent(word)}&format=json&origin=*`);
+      const data = await res.json();
+      
+      // If the API returns "-1" in pages, the page (word) doesn't exist
+      if (data.query?.pages && data.query.pages['-1']) {
+        setError(`'${word}' does not exist in the dictionary!`);
+        return;
+      }
+    } catch (e) {
+      console.error("Dictionary API failed", e);
+      // Fail gracefully and allow the word if the API is down
+    }
+
     // Determine next player
     const currentPlayerIndex = players.findIndex(p => p.id === player.id);
     const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
