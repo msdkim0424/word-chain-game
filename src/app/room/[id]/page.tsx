@@ -27,6 +27,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'members'>('chat');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wordsEndRef = useRef<HTMLDivElement>(null);
@@ -436,33 +437,67 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         )}
       </div>
 
-      {/* Chat Sidebar */}
+      {/* Sidebar (Tabs for Chat and Members) */}
       <div className={styles.chatSidebar}>
         <div className={styles.sidebarHeader}>
-          <h2 className={styles.sidebarTitle}>Chat</h2>
-        </div>
-        <div className={styles.chatMessages}>
-          {messages.map(m => (
-            <div key={m.id} className={styles.chatMessage}>
-              <div className={styles.sender}>{m.players?.nickname || 'Unknown'}</div>
-              <div>{m.content}</div>
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-        <form className={styles.chatInputArea} onSubmit={sendChat}>
-          <input 
-            type="text" 
-            className="input-base" 
-            placeholder="Say something..."
-            value={chatInput}
-            onChange={e => setChatInput(e.target.value)}
-            disabled={!player}
-          />
-          <button type="submit" className="btn-primary" style={{padding: '0.75rem'}} disabled={!player}>
-            <Send size={18} />
+          <button 
+            className={`${styles.tabButton} ${activeTab === 'chat' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            Chat
           </button>
-        </form>
+          <button 
+            className={`${styles.tabButton} ${activeTab === 'members' ? styles.activeTab : ''}`}
+            onClick={() => setActiveTab('members')}
+          >
+            Members ({players.length})
+          </button>
+        </div>
+
+        {activeTab === 'chat' ? (
+          <>
+            <div className={styles.chatMessages}>
+              {messages.map(m => (
+                <div key={m.id} className={styles.chatMessage}>
+                  <div className={styles.sender}>{m.players?.nickname || 'Unknown'}</div>
+                  <div>{m.content}</div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+            <form className={styles.chatInputArea} onSubmit={sendChat}>
+              <input 
+                type="text" 
+                className="input-base" 
+                placeholder="Say something..."
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                disabled={!player}
+              />
+              <button type="submit" className="btn-primary" style={{padding: '0.75rem'}} disabled={!player}>
+                <Send size={18} />
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className={styles.membersList}>
+            {players.map(p => (
+              <div key={p.id} className={styles.memberItem}>
+                <div className={styles.memberAvatar}>
+                  {p.nickname.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{fontWeight: 600, color: 'var(--foreground)'}}>
+                    {p.nickname} {p.id === player?.id && '(You)'}
+                  </div>
+                  <div style={{fontSize: '0.75rem', color: room.current_turn_player_id === p.id ? 'var(--primary)' : '#94a3b8'}}>
+                    {room.current_turn_player_id === p.id ? 'Current Turn' : 'Waiting...'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
