@@ -27,6 +27,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'members'>('chat');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -177,13 +178,15 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const submitWord = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!wordInput.trim() || !player) return;
+    if (!wordInput.trim() || !player || isSubmitting) return;
     
+    setIsSubmitting(true);
     const word = wordInput.trim();
     
     // Validate turn
     if (room?.current_turn_player_id !== player.id) {
       setError("It's not your turn!");
+      setIsSubmitting(false);
       return;
     }
 
@@ -200,6 +203,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       
       if (firstChar !== lastChar) {
         setError(`Word must start with '${lastChar}'.`);
+        setIsSubmitting(false);
         return;
       }
     }
@@ -214,6 +218,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
         const force = window.confirm(`'${word}' does not exist in the official Wiktionary!\n\nDo you want to force submit it anyway? (Your friends can judge you in chat)`);
         if (!force) {
           setError(`'${word}' does not exist in the dictionary!`);
+          setIsSubmitting(false);
           return;
         }
       }
@@ -236,6 +241,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
     if (insertErr) {
       setError("Failed to submit word.");
+      setIsSubmitting(false);
       return;
     }
 
@@ -246,6 +252,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     }).eq('id', roomId);
 
     setWordInput('');
+    setIsSubmitting(false);
   };
 
   const checkTimeout = async () => {
@@ -423,14 +430,14 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
                     placeholder={isMyTurn ? "Type your word..." : "Waiting for your turn..."}
                     value={wordInput}
                     onChange={e => setWordInput(e.target.value)}
-                    disabled={!isMyTurn || room.status !== 'playing'}
+                    disabled={!isMyTurn || room.status !== 'playing' || isSubmitting}
                   />
                   <button 
                     type="submit" 
                     className="btn-primary" 
-                    disabled={!isMyTurn || room.status !== 'playing'}
+                    disabled={!isMyTurn || room.status !== 'playing' || isSubmitting}
                   >
-                    Submit
+                    {isSubmitting ? '...' : 'Submit'}
                   </button>
                 </div>
                 {error && <div className={styles.errorText}>{error}</div>}
