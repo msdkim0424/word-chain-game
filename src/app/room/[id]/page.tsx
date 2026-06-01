@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, use } from 'react';
 import { supabase } from '@/utils/supabase';
 import styles from './room.module.css';
-import { Send, Users, Clock, AlertCircle } from 'lucide-react';
+import { Send, Users, Clock, AlertCircle, Play } from 'lucide-react';
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -136,7 +136,6 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       const lastChar = lastWord.charAt(lastWord.length - 1);
       const firstChar = word.charAt(0);
       
-      // Simple strict match (no dueum beopchik logic yet)
       if (firstChar !== lastChar) {
         setError(`Word must start with '${lastChar}'.`);
         return;
@@ -193,11 +192,17 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
   return (
     <div className={styles.container}>
-      {/* Join Overlay */}
+      {/* Join Overlay / Profile Creator */}
       {!player && (
         <div className={styles.joinOverlay}>
           <div className={`glass-panel ${styles.joinModal}`}>
-            <h2 className={styles.sidebarTitle}>Join Game</h2>
+            <h2 className={styles.joinModalTitle}>Create Session Profile</h2>
+            <p className={styles.joinModalSubtitle}>Set up your avatar and nickname to join the game.</p>
+            
+            <div className={styles.avatarPreview}>
+              {nicknameInput ? nicknameInput.charAt(0).toUpperCase() : '?'}
+            </div>
+
             <form onSubmit={joinRoom} style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
               <input 
                 type="text" 
@@ -206,54 +211,51 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
                 value={nicknameInput}
                 onChange={e => setNicknameInput(e.target.value)}
                 autoFocus
+                maxLength={12}
               />
-              <button type="submit" className="btn-primary">Join Room</button>
+              <button type="submit" className="btn-primary" style={{marginTop: '1rem'}}>Join Room</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Sidebar: Player List */}
-      <div className={styles.sidebar}>
-        <div className={styles.sidebarHeader}>
-          <h2 className={styles.sidebarTitle}>Players</h2>
-          <div style={{color: '#94a3b8', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <Users size={16} /> {players.length} in room
-          </div>
-        </div>
-        <div className={styles.playerList}>
-          {players.map(p => (
-            <div key={p.id} className={`${styles.playerItem} ${room.current_turn_player_id === p.id ? styles.activeTurn : ''}`}>
-              <div className={styles.playerAvatar}>
-                {p.nickname.charAt(0).toUpperCase()}
-              </div>
-              <div style={{flex: 1}}>{p.nickname} {p.id === player?.id && '(You)'}</div>
-              {room.current_turn_player_id === p.id && <Clock size={16} color="var(--primary)" />}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Main Game Area */}
       <div className={styles.mainArea}>
-        <div className={styles.statusHeader}>
-          <div>
-            <span style={{color: '#94a3b8'}}>Status: </span>
-            <span style={{fontWeight: 'bold', textTransform: 'capitalize'}}>{room.status}</span>
-          </div>
-          {room.status === 'waiting' && players.length >= 2 && (
-            <button className="btn-primary" onClick={startGame}>Start Game</button>
-          )}
-          {room.status === 'playing' && (
-            <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-              <Clock size={16} /> 
-              <span>Turn: <strong>{currentTurnPlayer?.nickname}</strong></span>
-              <button onClick={checkTimeout} style={{marginLeft: '1rem', color: 'var(--accent)', textDecoration: 'underline'}}>
+        {/* Top Header */}
+        <div className={styles.topHeader}>
+          <div className={styles.gameInfo}>
+            <h2 className={styles.headerTitle}>WolLu Game</h2>
+            {room.status === 'waiting' && players.length >= 2 && (
+              <button className="btn-primary" onClick={startGame} style={{padding: '0.5rem 1rem', fontSize: '0.875rem'}}>
+                Start Game
+              </button>
+            )}
+            {room.status === 'playing' && (
+              <button onClick={checkTimeout} style={{color: 'var(--accent)', textDecoration: 'underline', fontSize: '0.875rem', background: 'none', border: 'none', cursor: 'pointer'}}>
                 Check Timeout
               </button>
-            </div>
-          )}
+            )}
+          </div>
+
+          <div className={styles.playerProfiles}>
+            {players.map(p => (
+              <div key={p.id} className={`${styles.profileItem} ${room.current_turn_player_id === p.id ? styles.activeTurn : ''}`}>
+                <div className={styles.profileAvatar}>
+                  {p.nickname.charAt(0).toUpperCase()}
+                </div>
+                <span style={{fontWeight: 600, fontSize: '0.875rem'}}>{p.nickname} {p.id === player?.id && '(You)'}</span>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Turn Indicator Banner */}
+        {room.status === 'playing' && (
+          <div className={styles.turnBanner}>
+            <Clock size={20} />
+            <span>It is <strong>{currentTurnPlayer?.nickname}</strong>'s turn!</span>
+          </div>
+        )}
 
         <div className={styles.gameBoard}>
           {words.length === 0 && room.status === 'playing' && (
