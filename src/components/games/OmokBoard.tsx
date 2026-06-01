@@ -14,6 +14,7 @@ interface OmokBoardProps {
 export default function OmokBoard({ room, roomId, players, player, isMyTurn }: OmokBoardProps) {
   const [moves, setMoves] = useState<any[]>([]);
   const [isPlacing, setIsPlacing] = useState(false);
+  const isPlacingRef = React.useRef(false);
 
   // The first player to join is Player 1 (Purple), the second is Player 2 (Pink)
   const player1 = players[0];
@@ -21,6 +22,14 @@ export default function OmokBoard({ room, roomId, players, player, isMyTurn }: O
   
   // Am I one of the two players? Or just a spectator?
   const isPlaying = player?.id === player1?.id || player?.id === player2?.id;
+
+  // Unlock the board only when it legitimately becomes our turn again
+  useEffect(() => {
+    if (isMyTurn) {
+      setIsPlacing(false);
+      isPlacingRef.current = false;
+    }
+  }, [isMyTurn]);
 
   useEffect(() => {
     const fetchMoves = async () => {
@@ -77,11 +86,12 @@ export default function OmokBoard({ room, roomId, players, player, isMyTurn }: O
   };
 
   const handleCellClick = async (x: number, y: number) => {
-    if (!isPlaying || !isMyTurn || room.status !== 'playing' || isPlacing) return;
+    if (!isPlaying || !isMyTurn || room.status !== 'playing' || isPlacingRef.current) return;
     
     // Check if cell is occupied
     if (moves.some(m => m.x === x && m.y === y)) return;
 
+    isPlacingRef.current = true;
     setIsPlacing(true);
 
     const { error } = await supabase.from('omok_moves').insert([{
@@ -90,7 +100,11 @@ export default function OmokBoard({ room, roomId, players, player, isMyTurn }: O
       x, y
     }]);
 
-    if (!error) {
+    if (error) {
+      isPlacingRef.current = false;
+      setIsPlacing(false);
+      return;
+    }
       // Optimistic check for win
       const newMoves = [...moves, { room_id: roomId, player_id: player.id, x, y }];
       const hasWon = checkWinCondition(newMoves, x, y, player.id);
@@ -105,6 +119,9 @@ export default function OmokBoard({ room, roomId, players, player, isMyTurn }: O
           player_id: player.id,
           content: `[System] 🎉 ${player.nickname} has won the game! 🎉`
         }]);
+
+        isPlacingRef.current = false;
+        setIsPlacing(false);
       } else {
         // Pass turn
         const nextPlayerId = player.id === player1.id ? player2.id : player1.id;
@@ -112,10 +129,8 @@ export default function OmokBoard({ room, roomId, players, player, isMyTurn }: O
           current_turn_player_id: nextPlayerId,
           last_turn_timestamp: new Date().toISOString()
         }).eq('id', roomId);
+        // Do NOT reset isPlacing here. Wait for Realtime to update room.current_turn_player_id
       }
-    }
-
-    setIsPlacing(false);
   };
 
   const currentTurnPlayer = players.find(p => p.id === room.current_turn_player_id);
