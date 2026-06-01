@@ -211,8 +211,11 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       
       // If the API returns "-1" in pages, the page (word) doesn't exist
       if (data.query?.pages && data.query.pages['-1']) {
-        setError(`'${word}' does not exist in the dictionary!`);
-        return;
+        const force = window.confirm(`'${word}' does not exist in the official Wiktionary!\n\nDo you want to force submit it anyway? (Your friends can judge you in chat)`);
+        if (!force) {
+          setError(`'${word}' does not exist in the dictionary!`);
+          return;
+        }
       }
     } catch (e) {
       console.error("Dictionary API failed", e);
