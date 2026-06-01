@@ -120,6 +120,14 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       
       if (err) throw err;
       setPlayer(data);
+
+      // If the game is already playing and the host was alone, pass the turn to this new player!
+      if (room?.status === 'playing' && players.length === 1 && room.current_turn_player_id === players[0].id) {
+        await supabase.from('rooms').update({
+          current_turn_player_id: data.id,
+          last_turn_timestamp: new Date().toISOString()
+        }).eq('id', roomId);
+      }
     } catch (e) {
       console.error(e);
     } finally {
