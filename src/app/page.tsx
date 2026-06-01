@@ -14,6 +14,7 @@ export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
   
   const [roomNameInput, setRoomNameInput] = useState('');
+  const [gameType, setGameType] = useState('wordchain');
   const [activeRooms, setActiveRooms] = useState<any[]>([]);
 
   useEffect(() => {
@@ -70,7 +71,8 @@ export default function Home() {
         .insert([{ 
           status: 'waiting',
           host_id: userId,
-          name: rName
+          name: rName,
+          game_type: gameType
         }])
         .select()
         .single();
@@ -133,14 +135,26 @@ export default function Home() {
         </div>
 
         <form onSubmit={createRoom} className={styles.createRoomArea}>
-          <input 
-            type="text" 
-            className="input-base" 
-            placeholder={`${username}'s Game`}
-            value={roomNameInput}
-            onChange={e => setRoomNameInput(e.target.value)}
-            maxLength={30}
-          />
+          <div style={{display: 'flex', gap: '1rem', width: '100%'}}>
+            <input 
+              type="text" 
+              className="input-base" 
+              placeholder={`${username}'s Game`}
+              value={roomNameInput}
+              onChange={e => setRoomNameInput(e.target.value)}
+              maxLength={30}
+              style={{flex: 2}}
+            />
+            <select 
+              className="input-base" 
+              value={gameType}
+              onChange={e => setGameType(e.target.value)}
+              style={{flex: 1, cursor: 'pointer', appearance: 'none', background: 'rgba(0,0,0,0.3)'}}
+            >
+              <option value="wordchain">Word Chain</option>
+              <option value="omok">Omok (5-in-a-Row)</option>
+            </select>
+          </div>
           <button 
             type="submit"
             className={`btn-primary ${styles.btnLarge}`} 
@@ -164,7 +178,12 @@ export default function Home() {
                 <div key={room.id} className={styles.roomCard} onClick={() => router.push(`/room/${room.id}`)}>
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
                     <div>
-                      <div className={styles.roomName}>{room.name || 'Unnamed Game'}</div>
+                      <div className={styles.roomName}>
+                        {room.name || 'Unnamed Game'}
+                        <span style={{marginLeft: '0.5rem', fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', verticalAlign: 'middle'}}>
+                          {room.game_type === 'omok' ? 'Omok' : 'Word Chain'}
+                        </span>
+                      </div>
                       <div className={styles.roomHost}>Host: {room.users?.username || 'Unknown'}</div>
                     </div>
                     {room.host_id === userId && (

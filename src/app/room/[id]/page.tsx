@@ -4,7 +4,9 @@ import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import styles from './room.module.css';
-import { Send, Clock, Play, Copy, Users, ArrowLeft } from 'lucide-react';
+import { Send, Clock, Play, Copy, ArrowLeft } from 'lucide-react';
+import WordChainBoard from '@/components/games/WordChainBoard';
+import OmokBoard from '@/components/games/OmokBoard';
 
 const STARTING_WORDS = ['사과', '학교', '컴퓨터', '바나나', '기차', '우주', '자전거', '피아노', '호랑이', '고양이', '대한민국', '소방관', '경찰관', '우주선'];
 
@@ -145,15 +147,19 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
   const startGame = async () => {
     if (!player) return;
+    
+    // For Omok, it requires at least 2 players, but if there's only 1, they can play themselves for testing.
+    // The first player in the players list always starts.
     const firstPlayerId = players[0]?.id || player.id;
-    const randomStartingWord = STARTING_WORDS[Math.floor(Math.random() * STARTING_WORDS.length)];
-
-    // Insert the starting word with the host's player_id but formatted special
-    await supabase.from('words').insert([{
-      room_id: roomId,
-      player_id: player.id,
-      word: `[System] ${randomStartingWord}`
-    }]);
+    
+    if (room.game_type !== 'omok') {
+      const randomStartingWord = STARTING_WORDS[Math.floor(Math.random() * STARTING_WORDS.length)];
+      await supabase.from('words').insert([{
+        room_id: roomId,
+        player_id: player.id,
+        word: `[System] ${randomStartingWord}`
+      }]);
+    }
 
     await supabase.from('rooms').update({ 
       status: 'playing', 
@@ -377,62 +383,29 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
         {/* ACTIVE GAME VIEW */}
         {room.status !== 'waiting' && (
-          <>
-            {/* Turn Indicator Banner */}
-            {room.status === 'playing' && (
-              <div className={styles.turnBanner}>
-                <Clock size={20} />
-                <span>It is <strong>{currentTurnPlayer?.nickname}</strong>'s turn!</span>
-              </div>
-            )}
-
-            <div className={styles.gameBoard}>
-              <div className={styles.wordList}>
-                {words.map((w, i) => {
-                  const isSystem = w.word.startsWith('[System]');
-                  const displayWord = isSystem ? w.word.replace('[System] ', '') : w.word;
-                  const isLatest = i === words.length - 1;
-                  
-                  return (
-                    <div 
-                      key={w.id} 
-                      className={`${styles.wordItem} ${isSystem ? styles.systemWord : ''} ${isLatest ? styles.latestWord : ''}`}
-                    >
-                      {displayWord}
-                      <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', fontWeight: 'normal'}}>
-                        {isSystem ? '🤖 System' : players.find(p => p.id === w.player_id)?.nickname}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={wordsEndRef} />
-              </div>
-            </div>
-
-            {/* Input Area */}
-            <div className={styles.inputArea}>
-              <form onSubmit={submitWord} style={{flex: 1, display: 'flex', flexDirection: 'column'}}>
-                <div style={{display: 'flex', gap: '1rem'}}>
-                  <input 
-                    type="text" 
-                    className="input-base" 
-                    placeholder={isMyTurn ? "Type your word..." : "Waiting for your turn..."}
-                    value={wordInput}
-                    onChange={e => setWordInput(e.target.value)}
-                    disabled={!isMyTurn || room.status !== 'playing' || isSubmitting}
-                  />
-                  <button 
-                    type="submit" 
-                    className="btn-primary" 
-                    disabled={!isMyTurn || room.status !== 'playing' || isSubmitting}
-                  >
-                    {isSubmitting ? '...' : 'Submit'}
-                  </button>
-                </div>
-                {error && <div className={styles.errorText}>{error}</div>}
-              </form>
-            </div>
-          </>
+          room.game_type === 'omok' ? (
+            <OmokBoard 
+              room={room} 
+              roomId={roomId}
+              players={players} 
+              player={player} 
+              isMyTurn={isMyTurn} 
+            />
+          ) : (
+            <WordChainBoard 
+              room={room} 
+              players={players} 
+              player={player} 
+              words={words} 
+              isMyTurn={isMyTurn} 
+              isSubmitting={isSubmitting} 
+              wordInput={wordInput} 
+              setWordInput={setWordInput} 
+              submitWord={submitWord} 
+              error={error} 
+              wordsEndRef={wordsEndRef} 
+            />
+          )
         )}
       </div>
 
