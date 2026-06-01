@@ -15,17 +15,20 @@ const hashPassword = async (password: string) => {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const redirectUrl = searchParams?.get('redirect') || '/';
+
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If already logged in, redirect to lobby
+    // If already logged in, redirect
     if (localStorage.getItem('wollu_user_id')) {
-      router.push('/');
+      router.push(redirectUrl);
     }
-  }, [router]);
+  }, [router, redirectUrl]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +55,7 @@ export default function LoginPage() {
           // Success
           localStorage.setItem('wollu_user_id', user.id);
           localStorage.setItem('wollu_username', user.username);
-          router.push('/');
+          router.push(redirectUrl);
         } else {
           setError('Incorrect password.');
         }
@@ -68,7 +71,7 @@ export default function LoginPage() {
 
         localStorage.setItem('wollu_user_id', newUser.id);
         localStorage.setItem('wollu_username', newUser.username);
-        router.push('/');
+        router.push(redirectUrl);
       }
     } catch (err: any) {
       console.error(err);

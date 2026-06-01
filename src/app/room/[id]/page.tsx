@@ -36,12 +36,12 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     const storedUserId = localStorage.getItem('wollu_user_id');
     const storedUsername = localStorage.getItem('wollu_username');
     if (!storedUserId) {
-      router.push('/login');
+      router.push(`/login?redirect=/room/${roomId}`);
     } else {
       setUserId(storedUserId);
       setUsername(storedUsername);
     }
-  }, [router]);
+  }, [router, roomId]);
 
   // Auto-scroll logic
   useEffect(() => {
