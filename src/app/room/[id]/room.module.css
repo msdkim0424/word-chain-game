@@ -130,9 +130,24 @@
   animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.wordItem:last-child {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(236, 72, 153, 0.2));
-  border-color: var(--primary);
+.systemWord {
+  border-color: var(--accent) !important;
+  background: rgba(236, 72, 153, 0.1) !important;
+}
+
+.latestWord {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(236, 72, 153, 0.2)) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+  transform: scale(1.05);
+  animation: wordPulse 2s infinite;
+  z-index: 10;
+}
+
+@keyframes wordPulse {
+  0% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
+  50% { box-shadow: 0 0 25px rgba(139, 92, 246, 0.8); }
+  100% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
 }
 
 @keyframes popIn {

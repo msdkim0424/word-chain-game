@@ -391,9 +391,13 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
                 {words.map((w, i) => {
                   const isSystem = w.word.startsWith('[System]');
                   const displayWord = isSystem ? w.word.replace('[System] ', '') : w.word;
+                  const isLatest = i === words.length - 1;
                   
                   return (
-                    <div key={w.id} className={styles.wordItem} style={isSystem ? { borderColor: 'var(--accent)', background: 'rgba(236, 72, 153, 0.1)' } : {}}>
+                    <div 
+                      key={w.id} 
+                      className={`${styles.wordItem} ${isSystem ? styles.systemWord : ''} ${isLatest ? styles.latestWord : ''}`}
+                    >
                       {displayWord}
                       <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', fontWeight: 'normal'}}>
                         {isSystem ? '🤖 System' : players.find(p => p.id === w.player_id)?.nickname}
