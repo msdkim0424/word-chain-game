@@ -390,6 +390,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
               roomId={roomId}
               players={players} 
               player={player} 
+              isHost={isHost}
             />
           ) : room.game_type === 'omok' ? (
             <OmokBoard 

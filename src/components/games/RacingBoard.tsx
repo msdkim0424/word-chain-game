@@ -7,13 +7,18 @@ interface RacingBoardProps {
   roomId: string;
   players: any[];
   player: any;
+  isHost: boolean;
 }
 
 const MAX_CLICKS = 100;
 
-export default function RacingBoard({ room, roomId, players, player }: RacingBoardProps) {
+export default function RacingBoard({ room, roomId, players, player, isHost }: RacingBoardProps) {
   // state: mapping of player_id -> distance (0 to MAX_CLICKS)
   const [distances, setDistances] = useState<Record<string, number>>({});
+  const [countdown, setCountdown] = useState<string | null>(null);
+  const [isRaceActive, setIsRaceActive] = useState(false);
+  const [localFinished, setLocalFinished] = useState(false);
+
   const channelRef = useRef<any>(null);
   
   const isPlaying = room.status === 'playing';
@@ -56,13 +61,41 @@ export default function RacingBoard({ room, roomId, players, player }: RacingBoa
         }
       });
 
+    // Listen for Countdown and Winner broadcasts
+    channel.on('broadcast', { event: 'race_command' }, ({ payload }) => {
+      if (payload.type === 'countdown') {
+        setCountdown(payload.value);
+        if (payload.value === 'GO!') {
+          setIsRaceActive(true);
+          setTimeout(() => setCountdown(null), 1000);
+        }
+      } else if (payload.type === 'winner') {
+        setIsRaceActive(false);
+        setLocalFinished(true);
+      }
+    });
+
     return () => {
       supabase.removeChannel(channel);
     };
   }, [roomId, player]);
 
+  const startCountdown = async () => {
+    if (!channelRef.current || !isHost) return;
+    
+    const steps = ['3', '2', '1', 'GO!'];
+    for (let i = 0; i < steps.length; i++) {
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'race_command',
+        payload: { type: 'countdown', value: steps[i] }
+      });
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  };
+
   const handleRaceClick = async () => {
-    if (!isPlaying || !player) return;
+    if (!isPlaying || !player || !isRaceActive || localFinished) return;
 
     const currentDist = distances[player.id] || 0;
     if (currentDist >= MAX_CLICKS) return;
@@ -79,6 +112,16 @@ export default function RacingBoard({ room, roomId, players, player }: RacingBoa
 
     // Check Win Condition
     if (newDist >= MAX_CLICKS) {
+      // Instantly lock board locally and globally
+      setIsRaceActive(false);
+      setLocalFinished(true);
+      
+      await channelRef.current.send({
+        type: 'broadcast',
+        event: 'race_command',
+        payload: { type: 'winner', playerId: player.id }
+      });
+
       // Announce win and finish game
       await supabase.from('rooms').update({ status: 'finished' }).eq('id', roomId);
       
@@ -90,13 +133,25 @@ export default function RacingBoard({ room, roomId, players, player }: RacingBoa
     }
   };
 
+  const gameIsOver = isFinished || localFinished;
+
   return (
     <div className={styles.container}>
-      {isPlaying ? (
+      {isPlaying && !gameIsOver ? (
         <div className={styles.statusBanner}>
-          RACE! Spam the button!
+          {countdown ? (
+            <span style={{ fontSize: '3rem', color: countdown === 'GO!' ? '#22c55e' : 'var(--accent)' }}>
+              {countdown}
+            </span>
+          ) : isRaceActive ? (
+            "RACE! Spam the button!"
+          ) : isHost ? (
+            "Ready to race!"
+          ) : (
+            "Waiting for Host to start the countdown..."
+          )}
         </div>
-      ) : isFinished ? (
+      ) : gameIsOver ? (
         <div className={styles.statusBanner}>
           🏁 Race Finished! 🏁
         </div>
@@ -129,13 +184,23 @@ export default function RacingBoard({ room, roomId, players, player }: RacingBoa
       </div>
 
       <div className={styles.controlsArea}>
-        <button 
-          className={styles.raceButton} 
-          onClick={handleRaceClick}
-          disabled={!isPlaying || !player}
-        >
-          {isFinished ? 'Game Over' : 'GO!'}
-        </button>
+        {!isRaceActive && !gameIsOver && isHost && !countdown ? (
+          <button 
+            className={styles.raceButton} 
+            onClick={startCountdown}
+            style={{background: 'var(--primary)', color: 'black'}}
+          >
+            Start Race
+          </button>
+        ) : (
+          <button 
+            className={styles.raceButton} 
+            onClick={handleRaceClick}
+            disabled={!isRaceActive || !player || gameIsOver}
+          >
+            {gameIsOver ? 'Game Over' : countdown && countdown !== 'GO!' ? 'Wait...' : 'GO!'}
+          </button>
+        )}
       </div>
     </div>
   );
