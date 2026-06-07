@@ -7,6 +7,7 @@ import styles from './room.module.css';
 import { Send, Clock, Play, Copy, ArrowLeft } from 'lucide-react';
 import WordChainBoard from '@/components/games/WordChainBoard';
 import OmokBoard from '@/components/games/OmokBoard';
+import RacingBoard from '@/components/games/RacingBoard';
 
 const STARTING_WORDS = ['사과', '학교', '컴퓨터', '바나나', '기차', '우주', '자전거', '피아노', '호랑이', '고양이', '대한민국', '소방관', '경찰관', '우주선'];
 
@@ -152,7 +153,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     // The first player in the players list always starts.
     const firstPlayerId = players[0]?.id || player.id;
     
-    if (room.game_type !== 'omok') {
+    if (room.game_type === 'wordchain' || !room.game_type) {
       const randomStartingWord = STARTING_WORDS[Math.floor(Math.random() * STARTING_WORDS.length)];
       await supabase.from('words').insert([{
         room_id: roomId,
@@ -335,7 +336,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
               <div style={{fontSize: '0.75rem', color: '#94a3b8'}}>Host: {room.users?.username || 'Unknown'}</div>
             </div>
 
-            {room.status === 'playing' && (
+            {room.status === 'playing' && room.game_type !== 'racing' && (
               <button onClick={checkTimeout} style={{marginLeft: '1rem', color: 'var(--accent)', textDecoration: 'underline', fontSize: '0.875rem', background: 'none', border: 'none', cursor: 'pointer'}}>
                 Check Timeout
               </button>
@@ -383,7 +384,14 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
         {/* ACTIVE GAME VIEW */}
         {room.status !== 'waiting' && (
-          room.game_type === 'omok' ? (
+          room.game_type === 'racing' ? (
+            <RacingBoard 
+              room={room} 
+              roomId={roomId}
+              players={players} 
+              player={player} 
+            />
+          ) : room.game_type === 'omok' ? (
             <OmokBoard 
               room={room} 
               roomId={roomId}

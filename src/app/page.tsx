@@ -153,6 +153,7 @@ export default function Home() {
             >
               <option value="wordchain">Word Chain</option>
               <option value="omok">Omok (5-in-a-Row)</option>
+              <option value="racing">Mini Racing (Clicker)</option>
             </select>
           </div>
           <button 
@@ -181,7 +182,7 @@ export default function Home() {
                       <div className={styles.roomName}>
                         {room.name || 'Unnamed Game'}
                         <span style={{marginLeft: '0.5rem', fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: 'rgba(255,255,255,0.1)', borderRadius: '1rem', verticalAlign: 'middle'}}>
-                          {room.game_type === 'omok' ? 'Omok' : 'Word Chain'}
+                          {room.game_type === 'omok' ? 'Omok' : room.game_type === 'racing' ? 'Racing' : 'Word Chain'}
                         </span>
                       </div>
                       <div className={styles.roomHost}>Host: {room.users?.username || 'Unknown'}</div>
